@@ -1,0 +1,289 @@
+/// Home table for all report measures.
+table _Measures
+	lineageTag: a348a55a-16ca-5c85-876e-67e71508249f
+
+	measure 'Net Sales' = SUM('Inventory Weekly'[Net Sales])
+		formatString: \$#,0
+		displayFolder: Sales
+		lineageTag: 21d4aed1-2f7a-55ba-893a-da262cb9f13b
+
+	measure 'Units Sold' = SUM('Inventory Weekly'[Units Sold])
+		formatString: #,0
+		displayFolder: Sales
+		lineageTag: 3a81e6e8-aa10-5568-9c8e-21f18078e66f
+
+	measure 'Gross Margin' = SUMX('Inventory Weekly', 'Inventory Weekly'[Net Sales] - 'Inventory Weekly'[Units Sold] * RELATED(Products[Unit Cost]))
+		formatString: \$#,0
+		displayFolder: Sales
+		lineageTag: 924937ef-ad0b-5b3d-a6aa-235c08f5d717
+
+	measure 'Gross Margin %' = DIVIDE([Gross Margin], [Net Sales])
+		formatString: 0.0%
+		displayFolder: Sales
+		lineageTag: 5ea3950b-3267-5b1a-96bb-0a15b8a083d2
+
+	measure 'Stock on Hand Units' =
+			// semi-additive: take the last week that has stock rows in the current filter context
+			VAR LastWeek = LASTNONBLANK('Date'[Date], CALCULATE(COUNTROWS('Inventory Weekly')))
+			RETURN
+			    CALCULATE(SUM('Inventory Weekly'[Closing Stock Units]), LastWeek)
+		formatString: #,0
+		displayFolder: Inventory
+		lineageTag: 09950932-9974-5a51-abf7-7c35f52335f1
+
+	measure 'Stock at Cost' =
+			VAR LastWeek = LASTNONBLANK('Date'[Date], CALCULATE(COUNTROWS('Inventory Weekly')))
+			RETURN
+			    CALCULATE(SUMX('Inventory Weekly', 'Inventory Weekly'[Closing Stock Units] * RELATED(Products[Unit Cost])), LastWeek)
+		formatString: \$#,0
+		displayFolder: Inventory
+		lineageTag: bb5ca17e-f801-5ac4-895f-dedf49866a72
+
+	measure 'Avg Inventory at Cost' =
+			AVERAGEX(
+			    VALUES('Inventory Weekly'[Week Ending]),
+			    CALCULATE(SUMX('Inventory Weekly', 'Inventory Weekly'[Closing Stock Units] * RELATED(Products[Unit Cost])))
+			)
+		formatString: \$#,0
+		displayFolder: Inventory
+		lineageTag: ff046b26-9288-57d3-b804-fddf6973bea7
+
+	/// Gross margin dollars returned per dollar of average inventory held.
+	measure GMROI = DIVIDE([Gross Margin], [Avg Inventory at Cost])
+		formatString: 0.00
+		displayFolder: Inventory
+		lineageTag: 46aabe95-2e06-5145-99eb-0a8c3c9555ab
+
+	measure 'Avg Weekly Units (8w)' =
+			VAR LastWeek = CALCULATE(MAX('Inventory Weekly'[Week Ending]))
+			RETURN
+			    DIVIDE(CALCULATE([Units Sold], DATESINPERIOD('Date'[Date], LastWeek, -56, DAY)), 8)
+		formatString: #,0.0
+		displayFolder: Inventory
+		lineageTag: 7f4c95d5-92e8-54a1-a097-ccd017f6c476
+
+	measure 'Weeks of Cover' = DIVIDE([Stock on Hand Units], [Avg Weekly Units (8w)])
+		formatString: 0.0
+		displayFolder: Inventory
+		lineageTag: 753ca7c3-b40b-55e2-a166-5410a1690d9a
+
+	measure 'Sell-Through %' = DIVIDE([Units Sold], [Units Sold] + [Stock on Hand Units])
+		formatString: 0.0%
+		displayFolder: Inventory
+		lineageTag: 0de38f36-d990-5984-b075-bdbf3adb6d17
+
+	measure 'In-Stock %' = 1 - DIVIDE(SUM('Inventory Weekly'[Days Out Of Stock]), COUNTROWS('Inventory Weekly') * 7)
+		formatString: 0.0%
+		displayFolder: Availability
+		lineageTag: 9d0528de-857e-5e73-a517-0f9c6c95dfc3
+
+	measure 'Lost Sales (est.)' =
+			// conservative: scales each week's sales rate up to the days the line was out.
+			// weeks with zero stock all week have no rate and are left out
+			SUMX(
+			    'Inventory Weekly',
+			    DIVIDE('Inventory Weekly'[Net Sales], 7 - 'Inventory Weekly'[Days Out Of Stock]) * 'Inventory Weekly'[Days Out Of Stock]
+			)
+		formatString: \$#,0
+		displayFolder: Availability
+		lineageTag: ba4d435e-e342-56af-96cb-cfb788383344
+
+	measure 'Excess Stock Value' =
+			// stock above 12 weeks of cover, valued at cost, store by store
+			SUMX(
+			    SUMMARIZE('Inventory Weekly', Stores[Store ID], Products[SKU]),
+			    VAR OnHand = [Stock on Hand Units]
+			    VAR Weekly = [Avg Weekly Units (8w)]
+			    RETURN MAX(0, OnHand - 12 * Weekly) * CALCULATE(MAX(Products[Unit Cost]))
+			)
+		formatString: \$#,0
+		displayFolder: Inventory
+		lineageTag: 9e0f0307-52c9-523d-afb6-d79df885a211
+
+	measure 'Latest Week' = CALCULATE(MAX('Inventory Weekly'[Week Ending]), REMOVEFILTERS('Date'))
+		formatString: dd mmm yyyy
+		displayFolder: Replenishment
+		lineageTag: 417260a5-dd23-584d-b0f9-1fb98137e87c
+
+	measure 'On Hand Now' =
+			VAR Wk = [Latest Week]
+			RETURN
+			    CALCULATE(SUM('Inventory Weekly'[Closing Stock Units]), REMOVEFILTERS('Date'), 'Inventory Weekly'[Week Ending] = Wk)
+		formatString: #,0
+		displayFolder: Replenishment
+		lineageTag: bb7836d2-632e-5c16-86a6-6b9ac2cf3db2
+
+	measure 'Avg Daily Demand' =
+			VAR Wk = [Latest Week]
+			RETURN
+			    DIVIDE(CALCULATE([Units Sold], REMOVEFILTERS('Date'), 'Inventory Weekly'[Week Ending] > Wk - 56), 56)
+		formatString: 0.00
+		displayFolder: Replenishment
+		lineageTag: 57f60e79-bac6-5150-b624-8a843fee3e4b
+
+	measure 'Demand SD (daily)' =
+			VAR Wk = [Latest Week]
+			VAR Weeks =
+			    ADDCOLUMNS(
+			        CALCULATETABLE(VALUES('Date'[Week Ending]), REMOVEFILTERS('Date'), 'Date'[Week Ending] > Wk - 56, 'Date'[Week Ending] <= Wk),
+			        "@Units", CALCULATE([Units Sold], REMOVEFILTERS('Date'))
+			    )
+			RETURN
+			    STDEVX.P(Weeks, [@Units]) / SQRT(7)
+		formatString: 0.00
+		displayFolder: Replenishment
+		lineageTag: c5d8d878-31f0-5f11-9637-a0f719e8bf01
+
+	measure 'Service Z' = SELECTEDVALUE('Service Level'[Z], 1.6449)
+		formatString: 0.00
+		displayFolder: Replenishment
+		lineageTag: d43a22a1-b76f-5bbf-8ab7-57661faf2f60
+
+	measure 'Safety Stock' = [Service Z] * [Demand SD (daily)] * SQRT(MAX(Products[Lead Time Days]))
+		formatString: #,0.0
+		displayFolder: Replenishment
+		lineageTag: 1d7f398c-d8b4-558e-9e37-07a2423a424a
+
+	measure 'Reorder Point' = [Avg Daily Demand] * MAX(Products[Lead Time Days]) + [Safety Stock]
+		formatString: #,0.0
+		displayFolder: Replenishment
+		lineageTag: 213d6036-ed07-5c89-a503-b04c8afb9026
+
+	measure 'On Order Units' = CALCULATE(SUM('Purchase Orders'[Ordered Qty]), 'Purchase Orders'[Is Open] = 1)
+		formatString: #,0
+		displayFolder: Replenishment
+		lineageTag: 5c2fe3ea-ef61-5149-8610-42f719ff5fba
+
+	measure 'Suggested Order Qty' =
+			// order up to reorder point + two weeks of demand, rounded up to whole cases
+			VAR Position = [On Hand Now] + [On Order Units]
+			VAR Need = [Reorder Point] + [Avg Daily Demand] * 14 - Position
+			VAR Pack = MAX(Products[Case Pack])
+			RETURN
+			    IF(Position < [Reorder Point] && Need > 0, CEILING(Need, Pack), 0)
+		formatString: #,0
+		displayFolder: Replenishment
+		lineageTag: 86ee704d-8f48-5403-bc99-b42223efb622
+
+	measure 'Suggested Order Value' =
+			SUMX(
+			    SUMMARIZE(FILTER('Inventory Weekly', RELATED(Products[Status]) = "Active"), Stores[Store ID], Products[SKU]),
+			    [Suggested Order Qty] * CALCULATE(MAX(Products[Unit Cost]))
+			)
+		formatString: \$#,0
+		displayFolder: Replenishment
+		lineageTag: 6a52e02c-b6c6-5cb0-afb2-5155c4a3b693
+
+	measure 'Lines to Reorder' =
+			COUNTROWS(
+			    FILTER(
+			        SUMMARIZE(FILTER('Inventory Weekly', RELATED(Products[Status]) = "Active"), Stores[Store ID], Products[SKU]),
+			        [Suggested Order Qty] > 0
+			    )
+			)
+		formatString: #,0
+		displayFolder: Replenishment
+		lineageTag: 82cfb759-3deb-5ae9-b9a1-a40acb8912be
+
+	measure 'Lines Out of Stock Now' =
+			COUNTROWS(
+			    FILTER(
+			        SUMMARIZE(FILTER('Inventory Weekly', RELATED(Products[Status]) = "Active"), Stores[Store ID], Products[SKU]),
+			        [On Hand Now] = 0 && [Avg Daily Demand] > 0
+			    )
+			)
+		formatString: #,0
+		displayFolder: Replenishment
+		lineageTag: ff16db96-9ca8-5ec0-bbb5-291b36f4b663
+
+	measure Action =
+			SWITCH(
+			    TRUE(),
+			    [On Hand Now] = 0 && [Avg Daily Demand] > 0 && [On Order Units] > 0, "Empty - chase open PO",
+			    [On Hand Now] = 0 && [Avg Daily Demand] > 0, "Empty - order now",
+			    [Suggested Order Qty] > 0, "Reorder",
+			    DIVIDE([On Hand Now], [Avg Daily Demand] * 7) > 16, "Overstock - transfer",
+			    "OK"
+			)
+		displayFolder: Replenishment
+		lineageTag: 1f4714da-a506-5ba7-a91d-c313986f8b34
+
+	measure 'Action Colour' = SWITCH([Action], "Empty - order now", "#B5543C", "Empty - chase open PO", "#B5543C", "Reorder", "#C9A227", "Overstock - transfer", "#4E6E8E", "#7FA88F")
+		displayFolder: Formatting
+		lineageTag: b9152624-3d57-520b-a7f3-f025f9bb5e45
+
+	measure 'OTIF %' =
+			VAR Received = CALCULATE(COUNTROWS('Purchase Orders'), 'Purchase Orders'[Is Open] = 0)
+			VAR Good = CALCULATE(COUNTROWS('Purchase Orders'), 'Purchase Orders'[On Time] = 1, 'Purchase Orders'[In Full] = 1)
+			RETURN
+			    DIVIDE(Good, Received)
+		formatString: 0.0%
+		displayFolder: Suppliers
+		lineageTag: 4620d6cf-9dca-5bc8-9d69-274fc6937c9a
+
+	measure 'On Time %' = DIVIDE(CALCULATE(COUNTROWS('Purchase Orders'), 'Purchase Orders'[On Time] = 1), CALCULATE(COUNTROWS('Purchase Orders'), 'Purchase Orders'[Is Open] = 0))
+		formatString: 0.0%
+		displayFolder: Suppliers
+		lineageTag: 068742f5-0bd0-5ec6-ba61-c6e564972400
+
+	measure 'OTIF Colour' = IF([OTIF %] < 0.85, "#B5543C", "#2F6B4F")
+		displayFolder: Formatting
+		lineageTag: def4f43d-6eaf-571b-96be-381dc2bcaba0
+
+	measure 'Cover Colour' = SWITCH(TRUE(), [Weeks of Cover] < 6, "#B5543C", [Weeks of Cover] > 10, "#4E6E8E", "#2F6B4F")
+		displayFolder: Formatting
+		lineageTag: c5e4e994-43ca-5837-aa6b-50ed87b6f32c
+
+	measure 'Sales Note' = "Gross margin " & FORMAT([Gross Margin %], "0.0%")
+		displayFolder: Labels
+		lineageTag: 8509f129-4860-5b7b-8047-39a92bf8386e
+
+	measure 'Stock Note' = FORMAT([Stock on Hand Units], "#,0") & " units in stores"
+		displayFolder: Labels
+		lineageTag: 5c3478c9-419a-5539-8a94-f36c8aa13cb8
+
+	measure 'Cover Note' = "Target 6 to 10 weeks"
+		displayFolder: Labels
+		lineageTag: 057e6b4d-3928-5abc-95ff-0a32c825d05d
+
+	measure 'In-Stock Note' = FORMAT([Lost Sales (est.)], "$#,0") & " sales lost to empty shelves"
+		displayFolder: Labels
+		lineageTag: 2122709a-4759-501d-ac1e-cacf975cca24
+
+	measure 'GMROI Note' = "margin $ per $ of stock held"
+		displayFolder: Labels
+		lineageTag: 85afff85-793c-5185-9dd8-928667ed5b1f
+
+	measure 'Reorder Note' = FORMAT([Lines Out of Stock Now], "#,0") & " lines are empty right now"
+		displayFolder: Labels
+		lineageTag: 53636e36-6617-5109-9e76-5d7c5e8dbb72
+
+	measure 'Order Note' = "at cost, rounded to case packs"
+		displayFolder: Labels
+		lineageTag: a0936286-92df-5dc8-a59f-013c09d5b43b
+
+	measure 'Excess Note' = "stock above 12 weeks of cover"
+		displayFolder: Labels
+		lineageTag: 6ba4cb56-ce91-56b3-8ce9-7c5e64ba73ef
+
+	measure 'OTIF Note' = FORMAT([On Time %], "0%") & " on time  |  last 12 months"
+		displayFolder: Labels
+		lineageTag: 531affb4-8864-5367-b553-0f2007e4bc70
+
+	measure 'SL Note' = "z = " & FORMAT([Service Z], "0.00") & " in the safety stock formula"
+		displayFolder: Labels
+		lineageTag: 2021f54c-a725-5f0b-85e8-08dce5d23604
+
+	column 'Measure Holder'
+		dataType: int64
+		isHidden
+		lineageTag: 4e1ea4ee-3fe1-5394-ac7f-046621f3ecba
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Measure Holder]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition _Measures = calculated
+		mode: import
+		source = ROW("Measure Holder", 1)

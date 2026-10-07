@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "RetailInventoryHealth"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "0a055836-7889-5032-a1f3-d97e4d4ef09c"
+  }
+}

@@ -1,0 +1,21 @@
+StoreID,StoreName,Region,Format,SalesFloorSqFt
+ST01,Portland Pearl,West,Flagship,32000
+ST02,Seattle Ballard,West,Standard,21000
+ST03,Boise Downtown,West,Standard,18000
+ST04,Sacramento Midtown,West,Standard,19500
+ST05,Reno Meadowood,West,Outlet,14000
+ST06,Denver Cherry Creek,Mountain,Flagship,30000
+ST07,Boulder Pearl St,Mountain,Standard,16500
+ST08,Salt Lake Sugar House,Mountain,Standard,20000
+ST09,Phoenix Biltmore,Mountain,Standard,22000
+ST10,Albuquerque Nob Hill,Mountain,Outlet,13000
+ST11,Austin Domain,South,Flagship,31000
+ST12,Dallas Uptown,South,Standard,23000
+ST13,Houston Heights,South,Standard,22500
+ST14,San Antonio Pearl,South,Standard,18500
+ST15,Nashville 12South,South,Standard,17500
+ST16,Chicago Lincoln Park,Midwest,Flagship,33000
+ST17,Minneapolis North Loop,Midwest,Standard,20500
+ST18,Madison State St,Midwest,Standard,15500
+ST19,Columbus Short North,Midwest,Standard,19000
+ST20,Kansas City Crossroads,Midwest,Outlet,12500

@@ -1,0 +1,57 @@
+table Stores
+	lineageTag: 9bcce078-facb-521a-a2d7-d0990221d0b5
+
+	column 'Store ID'
+		dataType: string
+		isKey
+		lineageTag: 0fc914a2-04d5-5fd5-8a49-e59714bb5aa6
+		summarizeBy: none
+		sourceColumn: Store ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column Store
+		dataType: string
+		lineageTag: e12e2a11-9867-5cca-9007-24ecc0d55576
+		summarizeBy: none
+		sourceColumn: Store
+
+		annotation SummarizationSetBy = Automatic
+
+	column Region
+		dataType: string
+		lineageTag: 9b0758e1-bbf8-58cd-a9c8-4ccb85bc3cd7
+		summarizeBy: none
+		sourceColumn: Region
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Store Format'
+		dataType: string
+		lineageTag: 16f34208-5826-517f-bd7a-84d89bde68bb
+		summarizeBy: none
+		sourceColumn: Store Format
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Sales Floor SqFt'
+		dataType: int64
+		formatString: #,0
+		lineageTag: bf9421d7-c7d4-57e4-b98a-f3490f69a8f1
+		summarizeBy: none
+		sourceColumn: Sales Floor SqFt
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Stores = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "stores.csv"), [Delimiter = ",", Encoding = 65001, Columns = 5, QuoteStyle = QuoteStyle.Csv]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Typed = Table.TransformColumnTypes(Promoted, {{"SalesFloorSqFt", Int64.Type}}, "en-US"),
+				    Renamed = Table.RenameColumns(Typed, {{"StoreID", "Store ID"}, {"StoreName", "Store"}, {"Format", "Store Format"}, {"SalesFloorSqFt", "Sales Floor SqFt"}})
+				in
+				    Renamed
+
+	annotation PBI_ResultType = Table

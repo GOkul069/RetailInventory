@@ -1,0 +1,164 @@
+table Products
+	lineageTag: c9b1815e-ef0f-5f25-930c-4184c8299f2c
+
+	column SKU
+		dataType: string
+		isKey
+		lineageTag: db2a16ea-b723-5544-9bb1-18d7482c7579
+		summarizeBy: none
+		sourceColumn: SKU
+
+		annotation SummarizationSetBy = Automatic
+
+	column Product
+		dataType: string
+		lineageTag: a36f9823-e820-5583-a3be-f4c9ea07a847
+		summarizeBy: none
+		sourceColumn: Product
+
+		annotation SummarizationSetBy = Automatic
+
+	column Category
+		dataType: string
+		lineageTag: 2394924c-3aaa-5196-bbe0-3aae458e3700
+		summarizeBy: none
+		sourceColumn: Category
+
+		annotation SummarizationSetBy = Automatic
+
+	column Supplier
+		dataType: string
+		lineageTag: 9ee865b4-83b0-5f3d-8327-cec45eeae831
+		summarizeBy: none
+		sourceColumn: Supplier
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Unit Cost'
+		dataType: double
+		formatString: \$#,0.00
+		lineageTag: d299d8ef-1be9-5eac-bd30-b0a4020a7883
+		summarizeBy: none
+		sourceColumn: Unit Cost
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Retail Price'
+		dataType: double
+		formatString: \$#,0.00
+		lineageTag: 5b581c47-8aef-57b2-a456-50afaaf757ad
+		summarizeBy: none
+		sourceColumn: Retail Price
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Case Pack'
+		dataType: int64
+		formatString: 0
+		lineageTag: 1cf632b6-c847-5605-8de5-a1aa4639119d
+		summarizeBy: none
+		sourceColumn: Case Pack
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Lead Time Days'
+		dataType: int64
+		formatString: 0
+		lineageTag: 868d8d56-ced9-5f80-be24-7f3bf6257a9a
+		summarizeBy: none
+		sourceColumn: Lead Time Days
+
+		annotation SummarizationSetBy = Automatic
+
+	column Status
+		dataType: string
+		lineageTag: 74b47804-b818-5a3c-9479-ef357f23c748
+		summarizeBy: none
+		sourceColumn: Status
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'IMU %'
+		dataType: double
+		formatString: 0.0%
+		lineageTag: 57fd4735-7178-5a6f-a210-500f61160221
+		summarizeBy: none
+		sourceColumn: IMU %
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Price Band'
+		dataType: string
+		lineageTag: 646a0730-a358-592f-8808-ef4ad6a0c490
+		summarizeBy: none
+		sourceColumn: Price Band
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Sales 52w' = CALCULATE(SUM('Inventory Weekly'[Net Sales]))
+		dataType: double
+		isHidden
+		formatString: \$#,0
+		lineageTag: 31f5dcc4-0d65-56fe-8179-2eedce8f5426
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Pareto on 52-week net sales: A = first 80%, B = next 15%, C = the tail.
+	column 'ABC Class' =
+			VAR MySales = Products[Sales 52w]
+			VAR Total = SUM(Products[Sales 52w])
+			VAR Running = SUMX(FILTER(Products, Products[Sales 52w] >= MySales), Products[Sales 52w])
+			VAR Share = DIVIDE(Running, Total)
+			RETURN
+			    SWITCH(TRUE(), Share <= 0.8, "A", Share <= 0.95, "B", "C")
+		dataType: string
+		lineageTag: ac276497-d95f-5b24-b14c-56bf385b0fa6
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Demand variability: coefficient of variation of chain-wide weekly units. X < 0.3, Y < 0.5, Z otherwise.
+	column 'XYZ Class' =
+			VAR Weekly =
+			    ADDCOLUMNS(
+			        VALUES('Inventory Weekly'[Week Ending]),
+			        "@Units", CALCULATE(SUM('Inventory Weekly'[Units Sold]))
+			    )
+			VAR CV = DIVIDE(STDEVX.P(Weekly, [@Units]), AVERAGEX(Weekly, [@Units]))
+			RETURN
+			    SWITCH(TRUE(), CV < 0.3, "X", CV < 0.5, "Y", "Z")
+		dataType: string
+		lineageTag: e4995a19-f1be-5eb1-ba0a-90400412d925
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Products = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "products.csv"), [Delimiter = ",", Encoding = 65001, Columns = 9, QuoteStyle = QuoteStyle.Csv]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    // the product master is hand-maintained: category casing and trailing spaces vary
+				    Cleaned = Table.TransformColumns(
+				        Promoted,
+				        {{"Category", each Text.Proper(Text.Trim(_)), type text}, {"ProductName", Text.Trim, type text}, {"Supplier", Text.Trim, type text}}
+				    ),
+				    // prices arrive as text like "$1,249.00"
+				    Money = Table.TransformColumns(
+				        Cleaned,
+				        {{"UnitCost", each Number.From(Text.Remove(_, {"$", ","}), "en-US"), type number},
+				         {"RetailPrice", each Number.From(Text.Remove(_, {"$", ","}), "en-US"), type number}}
+				    ),
+				    Typed = Table.TransformColumnTypes(Money, {{"CasePack", Int64.Type}, {"LeadTimeDays", Int64.Type}}, "en-US"),
+				    Margin = Table.AddColumn(Typed, "IMU %", each 1 - [UnitCost] / [RetailPrice], type number),
+				    PriceBand = Table.AddColumn(Margin, "Price Band", each
+				        if [RetailPrice] < 25 then "Under $25" else if [RetailPrice] < 75 then "$25-75"
+				        else if [RetailPrice] < 150 then "$75-150" else "$150+", type text),
+				    Renamed = Table.RenameColumns(PriceBand, {{"ProductName", "Product"}, {"UnitCost", "Unit Cost"}, {"RetailPrice", "Retail Price"},
+				                                             {"CasePack", "Case Pack"}, {"LeadTimeDays", "Lead Time Days"}})
+				in
+				    Renamed
+
+	annotation PBI_ResultType = Table

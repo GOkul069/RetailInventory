@@ -1,0 +1,24 @@
+relationship 697af381-5fba-5130-98b0-55c1cb8eb290
+	fromColumn: 'Inventory Weekly'.'Week Ending'
+	toColumn: Date.Date
+
+relationship 580743f0-6753-5131-808c-ed255a847649
+	fromColumn: 'Inventory Weekly'.'Store ID'
+	toColumn: Stores.'Store ID'
+
+relationship 16aba560-d5ef-59c8-9802-db84404bac66
+	fromColumn: 'Inventory Weekly'.SKU
+	toColumn: Products.SKU
+
+relationship df1c66b9-5345-5186-a5f7-a21bf2678400
+	fromColumn: 'Purchase Orders'.'Order Date'
+	toColumn: Date.Date
+
+relationship bd318a50-4b6b-5cb9-b576-af0e646580f2
+	fromColumn: 'Purchase Orders'.'Store ID'
+	toColumn: Stores.'Store ID'
+
+relationship b7c3d706-88b0-5800-aba4-129bbbc1187f
+	fromColumn: 'Purchase Orders'.SKU
+	toColumn: Products.SKU
+

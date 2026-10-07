@@ -1,0 +1,28 @@
+/// Target cycle service level for the safety stock calculation (disconnected).
+table 'Service Level'
+	lineageTag: 5d8a34be-4eb1-5873-8686-dddc82696b7e
+
+	column 'Service Level'
+		dataType: double
+		formatString: 0%
+		lineageTag: 01323910-1ed2-557b-b4b6-3b8510c99c36
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Service Level]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Z
+		dataType: double
+		isHidden
+		formatString: 0.00
+		lineageTag: 40631b2f-38c6-5dda-85b8-7aed4647b55e
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Z]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Service Level' = calculated
+		mode: import
+		source = DATATABLE("Service Level", DOUBLE, "Z", DOUBLE, {{0.90, 1.2816}, {0.95, 1.6449}, {0.98, 2.0537}, {0.99, 2.3263}})

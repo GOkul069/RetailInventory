@@ -1,0 +1,148 @@
+table 'Purchase Orders'
+	lineageTag: e0d2f683-c09e-57f0-a4b4-89744ab02689
+
+	column 'PO Number'
+		dataType: string
+		lineageTag: 0a454de8-7940-5097-ac48-58a6f9ea9d85
+		summarizeBy: none
+		sourceColumn: PO Number
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Store ID'
+		dataType: string
+		isHidden
+		lineageTag: e35b968f-3b13-5f5d-8dda-25d6184a5cab
+		summarizeBy: none
+		sourceColumn: Store ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column SKU
+		dataType: string
+		isHidden
+		lineageTag: 64bfe8fd-9106-5822-a33f-f9ade9888cf0
+		summarizeBy: none
+		sourceColumn: SKU
+
+		annotation SummarizationSetBy = Automatic
+
+	column Supplier
+		dataType: string
+		isHidden
+		lineageTag: 19608bc3-fabe-5d9c-afeb-9f4049134944
+		summarizeBy: none
+		sourceColumn: Supplier
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Order Date'
+		dataType: dateTime
+		isHidden
+		formatString: dd mmm yy
+		lineageTag: 42c4af67-6802-5d5f-818a-3e2f6b1f9487
+		summarizeBy: none
+		sourceColumn: Order Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Expected Date'
+		dataType: dateTime
+		formatString: dd mmm yy
+		lineageTag: 14c94f8b-d204-5b24-a770-ff1e714cd8ec
+		summarizeBy: none
+		sourceColumn: Expected Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Received Date'
+		dataType: dateTime
+		formatString: dd mmm yy
+		lineageTag: b1b1e59d-d60a-5a30-8cea-575f24604eb6
+		summarizeBy: none
+		sourceColumn: Received Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Ordered Qty'
+		dataType: int64
+		formatString: #,0
+		lineageTag: 2d89398e-d04b-5250-aae0-b611d5a040cb
+		summarizeBy: sum
+		sourceColumn: Ordered Qty
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Received Qty'
+		dataType: int64
+		formatString: #,0
+		lineageTag: 54279df6-75cc-5228-8ec8-9e6d5ba4daf2
+		summarizeBy: sum
+		sourceColumn: Received Qty
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Is Open'
+		dataType: int64
+		isHidden
+		lineageTag: d45a1bdb-0c8a-5b2d-817f-a684e5bc70d1
+		summarizeBy: none
+		sourceColumn: Is Open
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'On Time'
+		dataType: int64
+		isHidden
+		lineageTag: 52e7ef9b-0acb-5f7a-98c1-28cbb2884090
+		summarizeBy: none
+		sourceColumn: On Time
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'In Full'
+		dataType: int64
+		isHidden
+		lineageTag: 557bf418-b61c-51ed-b671-ee8925533357
+		summarizeBy: none
+		sourceColumn: In Full
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Days Late'
+		dataType: int64
+		formatString: 0
+		lineageTag: 89fbfe05-faac-5877-ae4b-f1e6867f676c
+		summarizeBy: average
+		sourceColumn: Days Late
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Purchase Orders' = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "purchase_orders.csv"), [Delimiter = ",", Encoding = 65001, Columns = 9, QuoteStyle = QuoteStyle.Csv]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Blanks = Table.ReplaceValue(Promoted, "", null, Replacer.ReplaceValue, {"ReceivedDate", "ReceivedQty"}),
+				    Typed = Table.TransformColumnTypes(
+				        Blanks,
+				        {{"OrderDate", type date}, {"ExpectedDate", type date}, {"ReceivedDate", type date}, {"OrderedQty", Int64.Type}, {"ReceivedQty", Int64.Type}},
+				        "en-US"
+				    ),
+				    IsOpen = Table.AddColumn(Typed, "Is Open", each if [ReceivedDate] = null then 1 else 0, Int64.Type),
+				    OnTime = Table.AddColumn(IsOpen, "On Time", each if [ReceivedDate] = null then null else if [ReceivedDate] <= [ExpectedDate] then 1 else 0, Int64.Type),
+				    InFull = Table.AddColumn(OnTime, "In Full", each if [ReceivedQty] = null then null else if [ReceivedQty] >= [OrderedQty] then 1 else 0, Int64.Type),
+				    DaysLate = Table.AddColumn(InFull, "Days Late", each if [ReceivedDate] = null then null else List.Max({0, Duration.Days([ReceivedDate] - [ExpectedDate])}), Int64.Type),
+				    Renamed = Table.RenameColumns(DaysLate, {{"PONumber", "PO Number"}, {"StoreID", "Store ID"}, {"OrderDate", "Order Date"},
+				        {"ExpectedDate", "Expected Date"}, {"ReceivedDate", "Received Date"}, {"OrderedQty", "Ordered Qty"}, {"ReceivedQty", "Received Qty"}})
+				in
+				    Renamed
+
+	annotation PBI_ResultType = Table

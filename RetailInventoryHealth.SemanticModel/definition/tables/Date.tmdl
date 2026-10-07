@@ -1,0 +1,81 @@
+table Date
+	dataCategory: Time
+	lineageTag: 41368d63-8f42-55a2-baf3-2ed73030f9a2
+
+	column Date
+		dataType: dateTime
+		isKey
+		formatString: dd mmm yyyy
+		lineageTag: 6e70df78-13af-571f-a373-e05bf4f13228
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Date]
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Week Ending'
+		dataType: dateTime
+		formatString: dd mmm yy
+		lineageTag: 35c3b470-509f-504c-83a2-90976d1455da
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Week Ending]
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column Month
+		dataType: string
+		lineageTag: 6ca0471f-4dce-528f-9f07-c7e3cffb7319
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Month]
+		sortByColumn: 'Month Sort'
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Month Sort'
+		dataType: int64
+		isHidden
+		lineageTag: d2d6c66c-099f-5c78-9cb7-74ae0b321959
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Month Sort]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Fiscal Quarter'
+		dataType: string
+		lineageTag: cdfaa202-22d8-5699-b32f-ba1849613ea6
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Fiscal Quarter]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Season
+		dataType: string
+		lineageTag: 08e27a41-d9a9-55a4-9605-a6e4542298ab
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Season]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Date = calculated
+		mode: import
+		source =
+				VAR Base = CALENDAR(DATE(2025, 9, 28), DATE(2026, 10, 3))
+				RETURN
+				    ADDCOLUMNS(
+				        Base,
+				        "Week Ending", [Date] + 7 - WEEKDAY([Date], 1),
+				        "Month", FORMAT([Date], "mmm yyyy"),
+				        "Month Sort", YEAR([Date]) * 100 + MONTH([Date]),
+				        "Fiscal Quarter", "FQ" & (QUOTIENT(MOD(MONTH([Date]) - 10, 12), 3) + 1),
+				        "Season", SWITCH(TRUE(), MONTH([Date]) IN {3, 4, 5}, "Spring", MONTH([Date]) IN {6, 7, 8}, "Summer",
+				                         MONTH([Date]) IN {9, 10, 11}, "Fall", "Holiday & winter")
+				    )

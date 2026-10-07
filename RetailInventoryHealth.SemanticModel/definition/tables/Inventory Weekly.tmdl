@@ -1,0 +1,99 @@
+/// Store x SKU x week. Closing stock is a snapshot, so it is never summed across weeks (see Stock on Hand).
+table 'Inventory Weekly'
+	lineageTag: 5ae01883-4fd0-5bb5-83f4-5347d95cc442
+
+	column 'Week Ending'
+		dataType: dateTime
+		isHidden
+		formatString: dd mmm yy
+		lineageTag: 0499117b-667f-58a4-bff8-69a2361c3cbb
+		summarizeBy: none
+		sourceColumn: Week Ending
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Store ID'
+		dataType: string
+		isHidden
+		lineageTag: 645413f1-0277-551d-b3ce-98b02f9923aa
+		summarizeBy: none
+		sourceColumn: Store ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column SKU
+		dataType: string
+		isHidden
+		lineageTag: 495a2752-86b8-5329-adc1-bab0f7e63194
+		summarizeBy: none
+		sourceColumn: SKU
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Units Sold'
+		dataType: int64
+		formatString: #,0
+		lineageTag: 09fa8106-058a-561e-8922-a788ba0c0979
+		summarizeBy: sum
+		sourceColumn: Units Sold
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Net Sales'
+		dataType: decimal
+		formatString: \$#,0
+		lineageTag: 2ca864ce-d03a-5067-bdd2-3410c24d56fc
+		summarizeBy: sum
+		sourceColumn: Net Sales
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Receipts Units'
+		dataType: int64
+		formatString: #,0
+		lineageTag: 6f32fc01-8723-5c71-8c48-377c1870b2a9
+		summarizeBy: sum
+		sourceColumn: Receipts Units
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Closing Stock Units'
+		dataType: int64
+		isHidden
+		formatString: #,0
+		lineageTag: 870933e1-cd94-5972-960f-048671d0964e
+		summarizeBy: none
+		sourceColumn: Closing Stock Units
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Days Out Of Stock'
+		dataType: int64
+		formatString: 0
+		lineageTag: 5e0c4712-76c4-5d21-8858-7ed92df13a1b
+		summarizeBy: sum
+		sourceColumn: Days Out Of Stock
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Inventory Weekly' = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "weekly_store_sku.csv"), [Delimiter = ",", Encoding = 65001, Columns = 8, QuoteStyle = QuoteStyle.Csv]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Typed = Table.TransformColumnTypes(
+				        Promoted,
+				        {{"WeekEnding", type date}, {"UnitsSold", Int64.Type}, {"NetSales", Currency.Type}, {"ReceiptsUnits", Int64.Type},
+				         {"ClosingStockUnits", Int64.Type}, {"DaysOutOfStock", Int64.Type}},
+				        "en-US"
+				    ),
+				    Renamed = Table.RenameColumns(Typed, {{"WeekEnding", "Week Ending"}, {"StoreID", "Store ID"}, {"UnitsSold", "Units Sold"},
+				        {"NetSales", "Net Sales"}, {"ReceiptsUnits", "Receipts Units"}, {"ClosingStockUnits", "Closing Stock Units"},
+				        {"DaysOutOfStock", "Days Out Of Stock"}})
+				in
+				    Renamed
+
+	annotation PBI_ResultType = Table

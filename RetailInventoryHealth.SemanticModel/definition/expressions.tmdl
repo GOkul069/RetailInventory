@@ -1,0 +1,6 @@
+/// Folder that holds the CSV extracts. Change this after cloning the repo.
+expression DataFolder = "C:\PowerBI-Portfolio\RetailInventory\data\" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+	lineageTag: 8c876010-fd55-5fe7-927c-e3d97ba5a716
+
+	annotation PBI_ResultType = Text
+

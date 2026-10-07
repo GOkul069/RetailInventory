@@ -1,0 +1,7 @@
+# fabric-cicd replaces these values in the published files, per environment.
+# Point each model's DataFolder at a path the Power BI service can reach.
+find_replace:
+  - find_value: 'C:\PowerBI-Portfolio\'
+    replace_value:
+      DEV: '\\fileserver\bi-dev\PowerBI-Portfolio\'
+      PROD: '\\fileserver\bi\PowerBI-Portfolio\'
